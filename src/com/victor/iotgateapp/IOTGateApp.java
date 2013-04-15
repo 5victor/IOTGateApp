@@ -1,20 +1,26 @@
 package com.victor.iotgateapp;
 
-import com.victor.iot.Gateway;
+import com.victor.iot.GatewayService;
+import com.victor.iot.IGateway;
 
 import android.os.Bundle;
+import android.os.IBinder;
 import android.app.Activity;
+import android.app.Service;
+import android.content.ComponentName;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.view.Menu;
 
 public class IOTGateApp extends Activity {
-	private Gateway gateway;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         
-        gateway = new Gateway();
-        gateway.start();
+        Intent intent = new Intent();
+        intent.setAction("com.victor.iot.GATEWAY");
+        bindService(intent, conn, Service.BIND_AUTO_CREATE);
     }
 
     @Override
@@ -24,4 +30,20 @@ public class IOTGateApp extends Activity {
         return true;
     }
     
+    private IGateway gateway;
+    private ServiceConnection conn = new ServiceConnection()
+    {
+
+		@Override
+		public void onServiceConnected(ComponentName arg0, IBinder arg1) {
+			// TODO Auto-generated method stub
+			gateway = IGateway.Stub.asInterface(arg1);
+		}
+
+		@Override
+		public void onServiceDisconnected(ComponentName arg0) {
+			// TODO Auto-generated method stub
+			
+		}
+    };
 }

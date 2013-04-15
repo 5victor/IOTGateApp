@@ -23,6 +23,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service android:name="com.victor.iot.GatewayService">
+            <intent-filter>
+                <action android:name="com.victor.iot.GATEWAY"/>
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>
