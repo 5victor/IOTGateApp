@@ -11,6 +11,8 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.view.Menu;
+import android.view.MenuItem;
+import android.view.MenuItem.OnMenuItemClickListener;
 
 public class IOTGateApp extends Activity {
     @Override
@@ -27,6 +29,30 @@ public class IOTGateApp extends Activity {
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.activity_main, menu);
+        MenuItem setting = menu.getItem(0);
+        setting.setOnMenuItemClickListener(new OnMenuItemClickListener(){
+
+			@Override
+			public boolean onMenuItemClick(MenuItem arg0) {
+				// TODO Auto-generated method stub
+				Intent intent = new Intent(IOTGateApp.this, SettingsActivity.class);
+				startActivity(intent);
+				return false;
+			}
+        	
+        });
+        
+        MenuItem close = menu.getItem(1);
+        close.setOnMenuItemClickListener(new OnMenuItemClickListener(){
+
+			@Override
+			public boolean onMenuItemClick(MenuItem item) {
+				// TODO Auto-generated method stub
+				System.exit(0);
+				return false;
+			}
+        	
+        });
         return true;
     }
     
@@ -46,4 +72,10 @@ public class IOTGateApp extends Activity {
 			
 		}
     };
+    
+    protected void onDestroy()
+    {
+    	super.onDestroy();
+    	unbindService(conn);
+    }
 }

@@ -8,6 +8,9 @@ import java.io.OutputStream;
 import java.net.UnknownHostException;
 import java.security.KeyStore;
 import java.util.Vector;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
@@ -31,6 +34,8 @@ public class GatewayService extends Service {
 	
 	private static final String LOG_TAG = "IOTGateApp";
 	//private static final int SOF = 'W';
+	final Lock lock = new ReentrantLock();
+	final Condition wake = lock.newCondition();
 	
 	status status;
 	private int token;
@@ -191,6 +196,17 @@ public class GatewayService extends Service {
 
 			@Override
 			public void run() {
+				lock.lock();
+				try {
+					wake.await();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} finally {
+				       lock.unlock();
+				}
+				Log.v(LOG_TAG, "Do SSL connect");
+				
 				try {
 					init();
 				} catch (Exception e1) {
@@ -204,7 +220,7 @@ public class GatewayService extends Service {
 					e.printStackTrace();
 				}
 				// TODO Auto-generated method stub
-				
+
 				do {
 					
 				} while(true);
@@ -239,6 +255,17 @@ public class GatewayService extends Service {
 				throws RemoteException {
 			// TODO Auto-generated method stub
 			
+		}
+
+		@Override
+		public void startConnect() throws RemoteException {
+			// TODO Auto-generated method stub
+			lock.lock();
+			try {
+				wake.signal();
+			} finally {
+		       lock.unlock();
+			}
 		}
 	}
 }

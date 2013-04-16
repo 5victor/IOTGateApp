@@ -1,0 +1,10 @@
+<resources>
+
+    <string name="title_activity_settings">Settings</string>
+    <string name="perf_host_ip">pert_host_ip</string>
+    <string name="perf_service_switch">perf_service_switch</string>
+    <string name="perf_auto_start">perf_auto_start</string>
+    
+    
+
+</resources>

@@ -7,7 +7,8 @@
     <uses-sdk
         android:minSdkVersion="8"
         android:targetSdkVersion="17" />
-    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
@@ -23,11 +24,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <service android:name="com.victor.iot.GatewayService">
+
+        <service android:name="com.victor.iot.GatewayService" >
             <intent-filter>
-                <action android:name="com.victor.iot.GATEWAY"/>
+                <action android:name="com.victor.iot.GATEWAY" />
             </intent-filter>
         </service>
+
+        <receiver android:name="com.victor.iotgateapp.NewNodeReceiver" >
+            <intent-filter>
+                <action android:name="com.victor.iot.NEWNODE" />
+            </intent-filter>
+        </receiver>
+
+        <activity
+            android:name="com.victor.iotgateapp.SettingsActivity"
+            android:label="@string/title_activity_settings" >
+        </activity>
     </application>
 
 </manifest>

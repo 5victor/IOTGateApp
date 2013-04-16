@@ -1,0 +1,17 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <!--
+         NOTE: Hide buttons to simplify the UI. Users can touch outside the dialog to
+         dismiss it.
+    -->
+    <!-- NOTE: ListPreference's summary should be set to its value by the activity code. -->
+
+    <!--
+         This preference simply launches an intent when selected. Use this UI sparingly, per
+         design guidelines.
+    -->
+    <EditTextPreference android:title="Host IP" android:shouldDisableView="false" android:defaultValue="127.0.0.1" android:key="perf_host_ip"/>
+    <SwitchPreference android:title="Start Service" android:key="perf_service_switch"/>
+    <CheckBoxPreference android:title="Auto Start Service" android:key="perf_auto_start"/>
+
+</PreferenceScreen>
