@@ -5,6 +5,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.UnknownHostException;
 import java.security.KeyStore;
 import java.util.Vector;
@@ -40,12 +42,12 @@ public class GatewayService extends Service {
 	status status;
 	private int token;
 	
-	private SSLSocket sslSocket;
 	private Vector<Node> nodes;
 	private DataInputStream dataInput;
 	private DataOutputStream dataOutput;
+	private String ipaddr;
 	
-	private void init() throws Exception
+	private void SSLInit() throws Exception
 	{
 		KeyStore ks = KeyStore.getInstance("BKS");
 		InputStream inStore = this.getResources().openRawResource(R.raw.mystore);
@@ -54,7 +56,7 @@ public class GatewayService extends Service {
 		SSLContext ctx = SSLContext.getInstance("SSLv3");
 		ctx.init(null, tms, null);
 		SSLSocketFactory socketFactory = ctx.getSocketFactory();
-		
+		SSLSocket sslSocket = null;
 		try {
 			sslSocket = (SSLSocket) socketFactory.createSocket("127.0.0.1", 1013);
 		} catch (UnknownHostException e) {
@@ -88,6 +90,43 @@ public class GatewayService extends Service {
 		
 		dataInput = new DataInputStream(in);
 		dataOutput = new DataOutputStream(out);
+	}
+	
+	private int init(String ip)
+	{
+		Socket socket = null;
+		OutputStream out = null;
+		InputStream in = null;
+		
+		try {
+			socket = new Socket(ip, 1013);
+		} catch (UnknownHostException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		
+		if (socket == null)
+			return -1;
+		
+		try {
+			out = socket.getOutputStream();
+			in = socket.getInputStream();
+		} catch (UnknownHostException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		dataInput = new DataInputStream(in);
+		dataOutput = new DataOutputStream(out);
+
+		
+		return 0;
 	}
 	
 	private void writeHead(int cmd, int len)
@@ -208,12 +247,6 @@ public class GatewayService extends Service {
 				Log.v(LOG_TAG, "Do SSL connect");
 				
 				try {
-					init();
-				} catch (Exception e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-				try {
 					getToken();
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
@@ -257,15 +290,39 @@ public class GatewayService extends Service {
 			
 		}
 
+		private int initRet;
 		@Override
-		public void startConnect() throws RemoteException {
+		public int startConnect(String ip) throws RemoteException {
 			// TODO Auto-generated method stub
+			ipaddr = ip;
+			
+			Thread initSocket = new Thread(new Runnable(){
+
+				@Override
+				public void run() {
+					// TODO Auto-generated method stub
+					initRet = init(ipaddr);
+				}
+				
+			});
+			
+			initSocket.start();
+			try {
+				initSocket.join();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			if (initRet != 0)
+				return initRet;
+			
 			lock.lock();
 			try {
 				wake.signal();
 			} finally {
-		       lock.unlock();
+				lock.unlock();
 			}
+			return 0;
 		}
 	}
 }

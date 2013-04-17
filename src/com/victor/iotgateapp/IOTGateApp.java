@@ -5,17 +5,28 @@ import com.victor.iot.IGateway;
 
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.RemoteException;
+import android.preference.PreferenceManager;
 import android.app.Activity;
 import android.app.Service;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MenuItem.OnMenuItemClickListener;
 
 public class IOTGateApp extends Activity {
-    @Override
+	private static final String perf_host_ip = "perf_host_ip";
+	private static final String perf_service_switch = "perf_service_switch";
+	private static final String perf_auto_start = "perf_auto_start";
+	
+	SharedPreferences sharePref;
+    private IGateway gateway;
+
+	
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -23,8 +34,54 @@ public class IOTGateApp extends Activity {
         Intent intent = new Intent();
         intent.setAction("com.victor.iot.GATEWAY");
         bindService(intent, conn, Service.BIND_AUTO_CREATE);
+        
+        sharePref = PreferenceManager.getDefaultSharedPreferences(this);
+        sharePref.registerOnSharedPreferenceChangeListener(new IOTOnSharedPreferenceChangeListener());
+        
     }
 
+    public void startService()
+    {
+    	int ret = -1;
+    	
+    	SharedPreferences.Editor editor;
+    	editor = sharePref.edit();
+    	String ip = sharePref.getString(perf_host_ip, "");
+    	try {
+			ret = gateway.startConnect(ip);
+		} catch (RemoteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	if (ret == 0)
+    		editor.putBoolean(perf_service_switch, true);
+    	else
+    		editor.putBoolean(perf_service_switch, false);
+    	
+    	editor.commit();
+    }
+    
+    private void endService()
+    {
+    	
+    }
+    
+    private class IOTOnSharedPreferenceChangeListener implements OnSharedPreferenceChangeListener{
+
+		@Override
+		public void onSharedPreferenceChanged(SharedPreferences pref,
+				String key) {
+			// TODO Auto-generated method stub
+			if (key.equals(perf_service_switch)) {
+				if (pref.getBoolean(key, false))
+					startService();
+				else
+					endService();
+			}
+			return;
+		}
+    }
+    
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -56,7 +113,6 @@ public class IOTGateApp extends Activity {
         return true;
     }
     
-    private IGateway gateway;
     private ServiceConnection conn = new ServiceConnection()
     {
 
@@ -64,6 +120,9 @@ public class IOTGateApp extends Activity {
 		public void onServiceConnected(ComponentName arg0, IBinder arg1) {
 			// TODO Auto-generated method stub
 			gateway = IGateway.Stub.asInterface(arg1);
+	        if (sharePref.getBoolean(perf_auto_start, false)) {
+	        	startService();
+	        }
 		}
 
 		@Override
