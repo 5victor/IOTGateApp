@@ -3,6 +3,7 @@ package com.victor.iotgateapp;
 import com.victor.iot.IGateway;
 
 import android.os.RemoteException;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,41 +12,39 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
-class NewNodeReceiver extends BroadcastReceiver {
-	@Override
-	public void onReceive(Context arg0, Intent arg1) {
-		// TODO Auto-generated method stub
-
-	}
-
-}
-
-
-
 
 public class NodeAdapter extends BaseAdapter {
+	private static final String LOG_TAG = "IOTGateApp";
+	
 	LayoutInflater inflater;
 	IGateway gateway;
+	int nodeNum;
 	
 	public NodeAdapter(LayoutInflater i, IGateway g)
 	{
 		inflater = i;
 		gateway = g;
 	}
+	
+	public void refresh()
+	{
+		try {
+			nodeNum = gateway.getNodeNum();
+			gateway.refreshNodes();
+		} catch (RemoteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 
 	@Override
 	//是不是count变了listview就会刷新
 	public int getCount() {
 		// TODO Auto-generated method stub
-		int count = 0;
-		try {
-			count = gateway.getNodeNum();
-		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		Log.v(LOG_TAG, "getCount called");
+
 		
-		return count;
+		return nodeNum;
 	}
 
 	@Override
@@ -72,7 +71,6 @@ public class NodeAdapter extends BaseAdapter {
 			// TODO Auto-generated method stub
 
 		}
-
 	}
 
 }

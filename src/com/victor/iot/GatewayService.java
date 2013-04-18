@@ -21,31 +21,44 @@ import javax.net.ssl.TrustManager;
 
 import android.app.Service;
 import android.content.Intent;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
+import android.os.Message;
 import android.os.RemoteException;
 import android.util.Log;
 import com.victor.iotgateapp.R;
 
 public class GatewayService extends Service {
-	enum status {STOPPED, RUNNING, NODE_LEFT, NODE_ADDED};
+	private static final int STOPPED = 0x1;
+	private static final int RUNNING = 0x2;
+	
 	private static final int GET_TOKEN = 0x5; //client to server
-	private static final int QUERY_NODES = 0x6; //c2s
-	private static final int QUERY_NODE_ENDPOINTS = 0x7; //c2s
-	private static final int SEND_CLUSTER_DATA = 0x8; //s2c c2s
-	private static final int ADD_NODES = 0x9; //s2c
+	private static final int QUERY_NODE_NUM = 0x6;
+	private static final int QUERY_NODES = 0x7; //c2s
+	private static final int QUERY_NODE_ENDPOINTS = 0x8; //c2s
+	private static final int SEND_CLUSTER_DATA = 0x9; //s2c c2s
+	private static final int ADD_NODES = 0x10; //s2c
 	
 	private static final String LOG_TAG = "IOTGateApp";
 	//private static final int SOF = 'W';
-	final Lock lock = new ReentrantLock();
-	final Condition wake = lock.newCondition();
 	
-	status status;
+	private int status;
 	private int token;
 	
 	private Vector<Node> nodes;
+	private int nodeNum;
 	private DataInputStream dataInput;
 	private DataOutputStream dataOutput;
 	private String ipaddr;
+	
+	private Handler handler;
+	private static final int INIT = 0x1;
+	private static final int QUERYNODENUM = 0x2;
+	private static final int REFRESHNODES = 0x3;
+	private int initRet;
+	
+	private Thread recvThread;
 	
 	private void SSLInit() throws Exception
 	{
@@ -125,7 +138,8 @@ public class GatewayService extends Service {
 		dataInput = new DataInputStream(in);
 		dataOutput = new DataOutputStream(out);
 
-		
+		status = RUNNING;
+		recvThread.start();
 		return 0;
 	}
 	
@@ -191,75 +205,191 @@ public class GatewayService extends Service {
 		int data_len;
 	}
 	
-	private Boolean readHead(Head h) throws IOException
+	private Boolean readHead(Head h)
 	{
-		int t;
-		
+		int t = 0;
+		Boolean ret = false;
 		//getSOF();
 		
-		t = dataInput.readUnsignedByte();
-		h.cmd = dataInput.readUnsignedByte();
-		h.data_len = dataInput.readInt();
-		if (t != token)
-			return false;
+		try {
+			t = dataInput.readUnsignedByte();
+			h.cmd = dataInput.readUnsignedByte();
+			h.data_len = dataInput.readInt();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		if (t == token)
+			ret = true;
 		
-		return true;
+		return ret;
 	}
 	
-	private void getToken() throws IOException
+	private void flushData(Head hdr)
+	{
+		int i;
+		Log.v(LOG_TAG, "flushData:" + hdr.data_len + "bytes");
+		for (i = 0; i < hdr.data_len; i++)
+			try {
+				dataInput.read();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+	}
+	
+	private void getToken()
 	{
 		writeHead(GET_TOKEN, 0);
-		
-		//getSOF();
-		token = dataInput.readUnsignedByte();
-		if (dataInput.readUnsignedByte() != GET_TOKEN) {
-			Log.v(LOG_TAG, "GET_TOKEN fail");
-			token = -1;
+	}
+	
+	private void queryNodeNum()
+	{
+		writeHead(QUERY_NODE_NUM, 0);
+	}
+	
+	private void handleQueryNodeNum(Head hdr)
+	{
+		if (hdr.data_len != 4) {
+			nodeNum = 0;
+			flushData(hdr);
 		}
-		Log.v(LOG_TAG, "token = " + token);
-		dataInput.readUnsignedByte();
+		
+		try {
+			nodeNum = dataInput.readInt();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	private void queryNodes()
+	{
+		writeHead(QUERY_NODES, 0);
+	}
+	
+	private void handleQueryNodes(Head hdr)
+	{
+		if (!nodes.isEmpty())
+			nodes.clear();
+		
+		for (int i = 0; i < nodeNum; i++) {
+			Node node = new Node();
+			try {
+				node.nwkaddr = dataInput.readUnsignedShort();
+				node.type = dataInput.readInt();
+				node.epnum = dataInput.readInt();
+				String ieeeaddr = new String();
+				for (int j = 0; j < 8; j++) {
+					ieeeaddr = ieeeaddr + String.format("%02d",
+							dataInput.readUnsignedByte());
+				}
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
 	}
 /*
  * Service ... 这是分割线
  * (non-Javadoc)
  * @see android.app.Service#onCreate()
  */
+	private class SendThread implements Runnable
+	{
+
+		@Override
+		public void run() {
+			Looper.prepare();
+			handler = new Handler(){
+				public void handleMessage (Message msg)
+				{
+					switch(msg.what) {
+					case INIT:
+						initRet = init(ipaddr);
+						notifyHandler();
+						break;
+					case QUERYNODENUM:
+						queryNodeNum();
+						break;
+					case REFRESHNODES:
+						queryNodes();
+						break;
+						
+					}
+				}
+				
+			};
+			Looper.loop();
+		}
+		
+	}
+	
+	private class RecvThread implements Runnable
+	{
+
+		@Override
+		public void run() {
+			// TODO Auto-generated method stub
+			Head h = new Head();
+			Boolean ret;
+			
+			do {
+				ret = readHead(h);
+				if (!ret) {
+					flushData(h);
+					continue;
+				}
+				
+				switch (h.cmd) {
+				case QUERY_NODES:
+					handleQueryNodes(h);
+					notifyHandler();
+					break;
+				case QUERY_NODE_NUM:
+					handleQueryNodeNum(h);
+					notifyHandler();
+					break;
+				}
+			} while (true);
+			
+		}
+		
+	}
+	
+	
 	public void onCreate()
 	{
 		super.onCreate();
 		nodes = new Vector<Node>();
 		gatewayBinder = new GatewayBinder();
 		token = 0;
+		status = STOPPED;
+		Thread sendThread;
+		sendThread = new Thread(new SendThread());
+		sendThread.start();
 		
-		new Thread(new Runnable(){
-
-			@Override
-			public void run() {
-				lock.lock();
-				try {
-					wake.await();
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} finally {
-				       lock.unlock();
-				}
-				Log.v(LOG_TAG, "Do SSL connect");
-				
-				try {
-					getToken();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				// TODO Auto-generated method stub
-
-				do {
-					
-				} while(true);
+		recvThread = new Thread(new RecvThread());		
+	}
+	
+	private void waitHandler()
+	{
+		synchronized(handler) {
+			try {
+				handler.wait();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
-			
-		}).start();
+		}
+	}
+	
+	private void notifyHandler()
+	{
+		synchronized(handler) {
+			handler.notify();
+		}
 	}
 	
 	@Override
@@ -270,12 +400,6 @@ public class GatewayService extends Service {
 	
 	private GatewayBinder gatewayBinder;
 	public class GatewayBinder extends IGateway.Stub {
-
-		@Override
-		public int getNodeNum() throws RemoteException {
-			// TODO Auto-generated method stub
-			return 0;
-		}
 
 		@Override
 		public void getNode(int i, Node node) throws RemoteException {
@@ -290,38 +414,39 @@ public class GatewayService extends Service {
 			
 		}
 
-		private int initRet;
 		@Override
 		public int startConnect(String ip) throws RemoteException {
 			// TODO Auto-generated method stub
 			ipaddr = ip;
 			
-			Thread initSocket = new Thread(new Runnable(){
-
-				@Override
-				public void run() {
-					// TODO Auto-generated method stub
-					initRet = init(ipaddr);
-				}
-				
-			});
+			handler.sendEmptyMessage(INIT);
+			waitHandler();
 			
-			initSocket.start();
-			try {
-				initSocket.join();
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
 			if (initRet != 0)
 				return initRet;
 			
-			lock.lock();
-			try {
-				wake.signal();
-			} finally {
-				lock.unlock();
-			}
+			return 0;
+		}
+
+		@Override
+		public int getNodeNum() throws RemoteException {
+			// TODO Auto-generated method stub
+			if (status != RUNNING)
+				return 0;
+			
+			handler.sendEmptyMessage(QUERYNODENUM);
+			waitHandler();
+			return nodeNum;
+		}
+
+		@Override
+		public int refreshNodes() throws RemoteException {
+			// TODO Auto-generated method stub
+			if (status != RUNNING)
+				return 0;
+			
+			handler.sendEmptyMessage(REFRESHNODES);
+			waitHandler();
 			return 0;
 		}
 	}

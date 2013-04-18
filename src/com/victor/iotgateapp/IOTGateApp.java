@@ -14,9 +14,11 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MenuItem.OnMenuItemClickListener;
+import android.widget.ListView;
 
 public class IOTGateApp extends Activity {
 	private static final String perf_host_ip = "perf_host_ip";
@@ -25,6 +27,7 @@ public class IOTGateApp extends Activity {
 	
 	SharedPreferences sharePref;
     private IGateway gateway;
+    private ListView listView;
 
 	
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,6 +41,7 @@ public class IOTGateApp extends Activity {
         sharePref = PreferenceManager.getDefaultSharedPreferences(this);
         sharePref.registerOnSharedPreferenceChangeListener(new IOTOnSharedPreferenceChangeListener());
         
+        listView = (ListView) findViewById(R.id.listView);        
     }
 
     public void startService()
@@ -123,6 +127,8 @@ public class IOTGateApp extends Activity {
 	        if (sharePref.getBoolean(perf_auto_start, false)) {
 	        	startService();
 	        }
+	        NodeAdapter adapter = new NodeAdapter(LayoutInflater.from(IOTGateApp.this),gateway);
+	        listView.setAdapter(adapter);
 		}
 
 		@Override

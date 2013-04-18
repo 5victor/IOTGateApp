@@ -6,6 +6,7 @@ import com.victor.iot.Endpoint;
 interface IGateway
 {
 	int getNodeNum();
+	int refreshNodes();
 	void getNode(in int i, out Node node);
 	void getEndpoint(in int i, out Endpoint endpoint);
 	int startConnect(String ip);
