@@ -1,6 +1,7 @@
 package com.victor.iotgateapp;
 
 import com.victor.iot.IGateway;
+import com.victor.iot.Node;
 
 import android.os.RemoteException;
 import android.util.Log;
@@ -8,6 +9,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.TextView;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -41,7 +43,7 @@ public class NodeAdapter extends BaseAdapter {
 	//是不是count变了listview就会刷新
 	public int getCount() {
 		// TODO Auto-generated method stub
-		Log.v(LOG_TAG, "getCount called");
+		Log.v(LOG_TAG, "getCount called:nodeNum=" + nodeNum);
 
 		
 		return nodeNum;
@@ -62,7 +64,42 @@ public class NodeAdapter extends BaseAdapter {
 	@Override
 	public View getView(int position, View convertView, ViewGroup parent) {
 		// TODO Auto-generated method stub
-		return null;
+		if (convertView == null) {
+			convertView = inflater.inflate(R.layout.node_info, null);
+		}
+		
+		Node node = new Node();
+		try {
+			Log.v(LOG_TAG, "getView: position=" + position);
+			node = gateway.getNode(position);
+		} catch (RemoteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		fillNodeInfo(convertView, node);
+		
+		return convertView;
+	}
+	
+	private void fillNodeInfo(View view, Node node) {
+		TextView nwkaddr;
+		TextView type;
+		
+		nwkaddr = (TextView) view.findViewById(R.id.nwkaddr);
+		type = (TextView) view.findViewById(R.id.type);
+		nwkaddr.setText(String.format("%04x", node.nwkaddr));
+		switch (node.type) {
+		case Node.ZC:
+			type.setText("ZC");
+			break;
+		case Node.ZR:
+			type.setText("ZR");
+			break;
+		case Node.ZED:
+			type.setText("ZED");
+			break;
+		}
 	}
 	
 	class NewNodeReceiver extends BroadcastReceiver {

@@ -9,10 +9,10 @@ public class Node implements Parcelable {
 	public static final int ZC = 0;
 	public static final int ZR = 1;
 	public static final int ZED = 2;
-	int type;
-	int nwkaddr;
-	String ieeeaddr; /* as node identify */
-	int epnum;
+	public int type;
+	public int nwkaddr;
+	public String ieeeaddr; /* as node identify */
+	public int epnum;
 	Vector<Endpoint> endpoints;
 	
 	public Node()

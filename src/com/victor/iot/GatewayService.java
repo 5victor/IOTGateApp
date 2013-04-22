@@ -27,6 +27,9 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
 import android.util.Log;
+
+import com.google.common.io.LittleEndianDataInputStream;
+import com.google.common.io.LittleEndianDataOutputStream;
 import com.victor.iotgateapp.R;
 
 public class GatewayService extends Service {
@@ -48,8 +51,10 @@ public class GatewayService extends Service {
 	
 	private Vector<Node> nodes;
 	private int nodeNum;
-	private DataInputStream dataInput;
-	private DataOutputStream dataOutput;
+	//private DataInputStream dataInput;
+	//private DataOutputStream dataOutput;
+	LittleEndianDataInputStream dataInput;
+	LittleEndianDataOutputStream dataOutput;
 	private String ipaddr;
 	
 	private Handler handler;
@@ -101,8 +106,8 @@ public class GatewayService extends Service {
 			e.printStackTrace();
 		}
 		
-		dataInput = new DataInputStream(in);
-		dataOutput = new DataOutputStream(out);
+		dataInput = new LittleEndianDataInputStream(in);
+		dataOutput = new LittleEndianDataOutputStream(out);
 	}
 	
 	private int init(String ip)
@@ -135,8 +140,8 @@ public class GatewayService extends Service {
 			e.printStackTrace();
 		}
 		
-		dataInput = new DataInputStream(in);
-		dataOutput = new DataOutputStream(out);
+		dataInput = new LittleEndianDataInputStream(in);
+		dataOutput = new LittleEndianDataOutputStream(out);
 
 		status = RUNNING;
 		recvThread.start();
@@ -147,6 +152,7 @@ public class GatewayService extends Service {
 	{
 		try {
 			//dataOutput.write(SOF);
+			Log.v(LOG_TAG, "writeHead token=" + token + "cmd=" + cmd + "len=" + len);
 			dataOutput.write(token);
 			dataOutput.write(cmd);
 			dataOutput.writeInt(len);
@@ -219,7 +225,15 @@ public class GatewayService extends Service {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+		if (h.cmd == GET_TOKEN) {
+			token = t;
+			return true;
+		}
 
+		Log.v(LOG_TAG, "readHead recv token=" + token + "cmd=" +
+						h.cmd + "len=" + h.data_len);
+		Log.v(LOG_TAG, "token=" + token);
 		if (t == token)
 			ret = true;
 		
@@ -274,6 +288,7 @@ public class GatewayService extends Service {
 		if (!nodes.isEmpty())
 			nodes.clear();
 		
+		Log.v(LOG_TAG, "handleQueryNodes");
 		for (int i = 0; i < nodeNum; i++) {
 			Node node = new Node();
 			try {
@@ -282,13 +297,15 @@ public class GatewayService extends Service {
 				node.epnum = dataInput.readInt();
 				String ieeeaddr = new String();
 				for (int j = 0; j < 8; j++) {
-					ieeeaddr = ieeeaddr + String.format("%02d",
+					ieeeaddr = ieeeaddr + String.format("%2x",
 							dataInput.readUnsignedByte());
 				}
+				node.ieeeaddr = ieeeaddr;
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			nodes.add(node);
 		}
 	}
 /*
@@ -308,7 +325,7 @@ public class GatewayService extends Service {
 					switch(msg.what) {
 					case INIT:
 						initRet = init(ipaddr);
-						notifyHandler();
+						getToken();
 						break;
 					case QUERYNODENUM:
 						queryNodeNum();
@@ -343,6 +360,11 @@ public class GatewayService extends Service {
 				}
 				
 				switch (h.cmd) {
+				case GET_TOKEN:
+					//already handle by readHead
+					Log.v(LOG_TAG, "Get Token token=" + token);
+					notifyHandler();
+					break;
 				case QUERY_NODES:
 					handleQueryNodes(h);
 					notifyHandler();
@@ -402,16 +424,16 @@ public class GatewayService extends Service {
 	public class GatewayBinder extends IGateway.Stub {
 
 		@Override
-		public void getNode(int i, Node node) throws RemoteException {
+		public Node getNode(int i) throws RemoteException {
 			// TODO Auto-generated method stub
-			
+			return nodes.get(i);	
 		}
 
 		@Override
-		public void getEndpoint(int i, Endpoint endpoint)
+		public Endpoint getEndpoint(int i)
 				throws RemoteException {
 			// TODO Auto-generated method stub
-			
+			return null;
 		}
 
 		@Override

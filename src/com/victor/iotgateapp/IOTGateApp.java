@@ -124,11 +124,14 @@ public class IOTGateApp extends Activity {
 		public void onServiceConnected(ComponentName arg0, IBinder arg1) {
 			// TODO Auto-generated method stub
 			gateway = IGateway.Stub.asInterface(arg1);
-	        if (sharePref.getBoolean(perf_auto_start, false)) {
-	        	startService();
-	        }
 	        NodeAdapter adapter = new NodeAdapter(LayoutInflater.from(IOTGateApp.this),gateway);
 	        listView.setAdapter(adapter);
+	        
+	        if (sharePref.getBoolean(perf_auto_start, false)) {
+	        	startService();
+	        	adapter.refresh();
+	        }
+
 		}
 
 		@Override

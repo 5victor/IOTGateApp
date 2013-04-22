@@ -7,7 +7,7 @@ interface IGateway
 {
 	int getNodeNum();
 	int refreshNodes();
-	void getNode(in int i, out Node node);
-	void getEndpoint(in int i, out Endpoint endpoint);
+	Node getNode(in int i);
+	Endpoint getEndpoint(in int i);
 	int startConnect(String ip);
 }
