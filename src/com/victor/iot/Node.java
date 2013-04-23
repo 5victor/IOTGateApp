@@ -57,6 +57,4 @@ public class Node implements Parcelable {
 		epnum = src.readInt();//int epnum;
 		
 	}
-	
-	
 }

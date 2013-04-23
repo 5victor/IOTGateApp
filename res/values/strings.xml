@@ -6,5 +6,6 @@
     <string name="menu_settings">Settings</string>
     <string name="title_activity_setting">Setting</string>
     <string name="title_activity_node">NodeActivity</string>
+    <string name="NWKADDR">NWKADDR:</string>
 
 </resources>

@@ -14,16 +14,22 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MenuItem.OnMenuItemClickListener;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ListView;
 
 public class IOTGateApp extends Activity {
 	private static final String perf_host_ip = "perf_host_ip";
 	private static final String perf_service_switch = "perf_service_switch";
 	private static final String perf_auto_start = "perf_auto_start";
+	private static final String LOG_TAG = "IOTGateApp";
 	
 	SharedPreferences sharePref;
     private IGateway gateway;
@@ -117,6 +123,19 @@ public class IOTGateApp extends Activity {
         return true;
     }
     
+    private class ListClickListener implements OnItemClickListener
+    {
+		@Override
+		public void onItemClick(AdapterView<?> arg0, View arg1, int index,
+				long arg3) {
+			// TODO Auto-generated method stub
+			Log.v(LOG_TAG, "ListView Item=" + index + "clicked");
+			Intent intent = new Intent(IOTGateApp.this, NodeActivity.class);
+			intent.putExtra("index", index);
+			startActivity(intent);			
+		}	
+    }
+    
     private ServiceConnection conn = new ServiceConnection()
     {
 
@@ -126,6 +145,8 @@ public class IOTGateApp extends Activity {
 			gateway = IGateway.Stub.asInterface(arg1);
 	        NodeAdapter adapter = new NodeAdapter(LayoutInflater.from(IOTGateApp.this),gateway);
 	        listView.setAdapter(adapter);
+	        
+	        listView.setOnItemClickListener(new ListClickListener());
 	        
 	        if (sharePref.getBoolean(perf_auto_start, false)) {
 	        	startService();

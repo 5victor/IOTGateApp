@@ -145,6 +145,7 @@ public class GatewayService extends Service {
 
 		status = RUNNING;
 		recvThread.start();
+		getToken();
 		return 0;
 	}
 	
@@ -164,14 +165,19 @@ public class GatewayService extends Service {
 		}
 	}
 	
-	private void writeData(int len, int array[]) throws IOException
+	private void writeData(int len, int array[])
 	{
 
 		if (len == 0)
 			return;
 		
 		for (int i = 0; i < len; i++) {
-			dataOutput.write(array[i]);
+			try {
+				dataOutput.write(array[i]);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 
 		try {
@@ -283,6 +289,22 @@ public class GatewayService extends Service {
 		writeHead(QUERY_NODES, 0);
 	}
 	
+	private void queryEndpoints()
+	{
+		int i;
+		int nwkaddr[] = new int[2];
+		
+		
+		for (i = 0; i < nodes.size(); i++) {
+			writeHead(QUERY_NODE_ENDPOINTS, 2);
+			int addr = nodes.get(i).nwkaddr;
+			Log.v(LOG_TAG, "queryEndpoint nwkaddr=" + String.format("%04x", addr));
+			nwkaddr[0] = addr & 0xFF;
+			nwkaddr[1] = (addr >> 8) & 0xFF;
+			writeData(2, nwkaddr);
+		}
+	}
+	
 	private void handleQueryNodes(Head hdr)
 	{
 		if (!nodes.isEmpty())
@@ -297,8 +319,8 @@ public class GatewayService extends Service {
 				node.epnum = dataInput.readInt();
 				String ieeeaddr = new String();
 				for (int j = 0; j < 8; j++) {
-					ieeeaddr = ieeeaddr + String.format("%2x",
-							dataInput.readUnsignedByte());
+					int b = dataInput.readUnsignedByte();
+					ieeeaddr = ieeeaddr + String.format("%02x", b);
 				}
 				node.ieeeaddr = ieeeaddr;
 			} catch (IOException e) {
@@ -307,7 +329,54 @@ public class GatewayService extends Service {
 			}
 			nodes.add(node);
 		}
+		
+		queryEndpoints();
 	}
+	
+	private void handleQueryEndpoints(Head hdr) throws IOException
+	{
+		int i;
+		Endpoint ep = new Endpoint();
+		
+		ep.index = dataInput.readUnsignedByte();
+		ep.nwkaddr = dataInput.readUnsignedShort();
+		ep.profileid = dataInput.readUnsignedShort();
+		ep.deviceid = dataInput.readUnsignedShort();
+		
+		ep.inclusternum = dataInput.readUnsignedByte();
+		if (ep.inclusternum != 0) {
+			ep.inclusterlist = new int[ep.inclusternum];
+			for (i = 0; i < ep.inclusternum; i++) {
+				ep.inclusterlist[i] = dataInput.readUnsignedShort();
+			}
+		}
+		
+		ep.outclusternum = dataInput.readUnsignedByte();
+		if (ep.outclusternum != 0) {
+			ep.outclusterlist = new int[ep.outclusternum];
+			for (i = 0; i < ep.outclusternum; i++) {
+				ep.outclusterlist[i] = dataInput.readUnsignedShort();
+			}
+		}
+		Node node = getNode(ep.nwkaddr);
+		if (node == null) {
+			Log.v(LOG_TAG, "Endpoint nwkaddr not fount, nwkaddr=" +
+					String.format("%04x", ep.nwkaddr));
+		}
+		node.endpoints.add(ep);
+	}
+	
+	private Node getNode(int nwkaddr)
+	{
+		for (int i = 0; i < nodes.size(); i++) {
+			Node node = nodes.get(i);
+			if (node.nwkaddr == nwkaddr)
+				return node;
+		}
+		
+		return null;
+	}
+	
 /*
  * Service ... 这是分割线
  * (non-Javadoc)
@@ -325,13 +394,13 @@ public class GatewayService extends Service {
 					switch(msg.what) {
 					case INIT:
 						initRet = init(ipaddr);
-						getToken();
 						break;
 					case QUERYNODENUM:
 						queryNodeNum();
 						break;
 					case REFRESHNODES:
 						queryNodes();
+						//queryEndpoints(); at the end of handleQueryNodes()
 						break;
 						
 					}
@@ -367,11 +436,24 @@ public class GatewayService extends Service {
 					break;
 				case QUERY_NODES:
 					handleQueryNodes(h);
-					notifyHandler();
+					//notifyHandler(); wake refreshNode
 					break;
 				case QUERY_NODE_NUM:
 					handleQueryNodeNum(h);
 					notifyHandler();
+					break;
+				case QUERY_NODE_ENDPOINTS:
+					try {
+						handleQueryEndpoints(h);
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					Node lastNode = nodes.get(nodes.size() - 1);
+					if (lastNode.epnum == lastNode.endpoints.size()) {
+						notifyHandler(); //wake refreshNode
+						Log.v(LOG_TAG, "wake refreshNode");
+					}
 					break;
 				}
 			} while (true);
@@ -430,9 +512,15 @@ public class GatewayService extends Service {
 		}
 
 		@Override
-		public Endpoint getEndpoint(int i)
+		public Endpoint getEndpoint(int nwkaddr, int i)
 				throws RemoteException {
 			// TODO Auto-generated method stub
+			int j;
+			for (j = 0; j < nodes.size(); j++) {
+				Node node = nodes.get(j);
+				if (node.nwkaddr == nwkaddr)
+					return node.endpoints.get(i);
+			}
 			return null;
 		}
 

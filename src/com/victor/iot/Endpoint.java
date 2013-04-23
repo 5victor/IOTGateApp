@@ -6,14 +6,14 @@ import android.os.Parcelable.Creator;
 
 public class Endpoint implements Parcelable {
 	private static final int MAX_CLUSTER = 32;
-	int index;
-	int nwkaddr;
-	int profileid;
-	int deviceid;
-	int inclusternum;
-	int inclusterlist[];
-	int outclusternum;
-	int outclusterlist[];
+	public int index;
+	public int nwkaddr;
+	public int profileid;
+	public int deviceid;
+	public int inclusternum;
+	public int inclusterlist[];
+	public int outclusternum;
+	public int outclusterlist[];
 	
 	public Endpoint()
 	{
