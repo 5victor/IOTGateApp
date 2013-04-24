@@ -13,7 +13,7 @@ public class Node implements Parcelable {
 	public int nwkaddr;
 	public String ieeeaddr; /* as node identify */
 	public int epnum;
-	Vector<Endpoint> endpoints;
+	public Vector<Endpoint> endpoints;
 	
 	public Node()
 	{
@@ -55,6 +55,5 @@ public class Node implements Parcelable {
 		nwkaddr = src.readInt();//int nwkaddr;
 		ieeeaddr = src.readString();//String ieeeaddr; /* as node identify */
 		epnum = src.readInt();//int epnum;
-		
 	}
 }

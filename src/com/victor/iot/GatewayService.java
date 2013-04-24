@@ -33,6 +33,8 @@ import com.google.common.io.LittleEndianDataOutputStream;
 import com.victor.iotgateapp.R;
 
 public class GatewayService extends Service {
+	private static final int MAX_CLUSTER = 32;
+	
 	private static final int STOPPED = 0x1;
 	private static final int RUNNING = 0x2;
 	
@@ -327,6 +329,7 @@ public class GatewayService extends Service {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			node.endpoints = new Vector<Endpoint>();
 			nodes.add(node);
 		}
 		
@@ -344,20 +347,17 @@ public class GatewayService extends Service {
 		ep.deviceid = dataInput.readUnsignedShort();
 		
 		ep.inclusternum = dataInput.readUnsignedByte();
-		if (ep.inclusternum != 0) {
-			ep.inclusterlist = new int[ep.inclusternum];
-			for (i = 0; i < ep.inclusternum; i++) {
-				ep.inclusterlist[i] = dataInput.readUnsignedShort();
-			}
+		ep.inclusterlist = new int[MAX_CLUSTER];
+		for (i = 0; i < MAX_CLUSTER; i++) {
+			ep.inclusterlist[i] = dataInput.readUnsignedShort();
 		}
 		
 		ep.outclusternum = dataInput.readUnsignedByte();
-		if (ep.outclusternum != 0) {
-			ep.outclusterlist = new int[ep.outclusternum];
-			for (i = 0; i < ep.outclusternum; i++) {
-				ep.outclusterlist[i] = dataInput.readUnsignedShort();
-			}
+		ep.outclusterlist = new int[MAX_CLUSTER];
+		for (i = 0; i < MAX_CLUSTER; i++) {
+			ep.outclusterlist[i] = dataInput.readUnsignedShort();
 		}
+			
 		Node node = getNode(ep.nwkaddr);
 		if (node == null) {
 			Log.v(LOG_TAG, "Endpoint nwkaddr not fount, nwkaddr=" +

@@ -45,6 +45,10 @@
             android:name="com.victor.iotgateapp.NodeActivity"
             android:label="@string/title_activity_node" >
         </activity>
+        <activity
+            android:name="com.victor.iotgateapp.EndpointActivity"
+            android:label="@string/title_activity_endpoint" >
+        </activity>
     </application>
 
 </manifest>

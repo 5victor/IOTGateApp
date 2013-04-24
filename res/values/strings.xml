@@ -7,5 +7,6 @@
     <string name="title_activity_setting">Setting</string>
     <string name="title_activity_node">NodeActivity</string>
     <string name="NWKADDR">NWKADDR:</string>
+    <string name="title_activity_endpoint">EndpointActivity</string>
 
 </resources>

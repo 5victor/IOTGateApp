@@ -1,5 +1,6 @@
 package com.victor.iotgateapp;
 
+import com.victor.iot.Endpoint;
 import com.victor.iot.IGateway;
 import com.victor.iot.Node;
 
@@ -13,8 +14,12 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.util.Log;
 import android.view.Menu;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.AdapterView.OnItemClickListener;
 
 public class NodeActivity extends Activity {
 	private static final String LOG_TAG = "IOTGateApp";
@@ -42,7 +47,7 @@ public class NodeActivity extends Activity {
 	
 	private void initActivity()
 	{
-		ListView listview = (ListView) findViewById(R.id.EndpointList);
+		ListView listview = (ListView) findViewById(R.id.listView);
 		TextView nwkaddr = (TextView) findViewById(R.id.nwkaddr);
 		nwkaddr.setText(String.format("%04x", node.nwkaddr));
 		
@@ -62,7 +67,29 @@ public class NodeActivity extends Activity {
 		TextView ieeeaddr = (TextView) findViewById(R.id.ieeeaddr);
 		ieeeaddr.setText(node.ieeeaddr);
 		
+		String[] ep = new String[node.epnum];
+		for(int i= 0; i < node.epnum; i++) {
+			ep[i] = "端点：" + node.endpoints.get(i).index;
+		}
+		ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(
+				this, android.R.layout.simple_list_item_1, ep);
+		listview.setAdapter(arrayAdapter);
+		listview.setOnItemClickListener(new ListClickListener());
 	}
+	
+	private class ListClickListener implements OnItemClickListener
+    {
+
+		@Override
+		public void onItemClick(AdapterView<?> arg0, View arg1, int index,
+				long arg3) {
+			// TODO Auto-generated method stub
+			Intent intent = new Intent(NodeActivity.this, EndpointActivity.class);
+			intent.putExtra("nwkaddr", node.nwkaddr);
+			intent.putExtra("endpoint", index);
+			startActivity(intent);
+		}
+    }
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
@@ -80,6 +107,10 @@ public class NodeActivity extends Activity {
 				gateway = IGateway.Stub.asInterface(arg1);
 				try {
 					node = gateway.getNode(index);
+					for (int i = 0; i < node.epnum; i++) {
+						Endpoint ep = gateway.getEndpoint(node.nwkaddr, i);
+						node.endpoints.add(ep);
+					}
 				} catch (RemoteException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
