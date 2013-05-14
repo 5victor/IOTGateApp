@@ -1,6 +1,6 @@
 package com.victor.iotgateapp;
 
-import com.victor.iot.IGateway;
+import com.victor.iot.GatewayService;
 import com.victor.iot.Node;
 
 import android.os.RemoteException;
@@ -19,10 +19,10 @@ public class NodeAdapter extends BaseAdapter {
 	private static final String LOG_TAG = "IOTGateApp";
 	
 	LayoutInflater inflater;
-	IGateway gateway;
+	GatewayService gateway;
 	int nodeNum;
 	
-	public NodeAdapter(LayoutInflater i, IGateway g)
+	public NodeAdapter(LayoutInflater i, GatewayService g)
 	{
 		inflater = i;
 		gateway = g;
@@ -30,13 +30,9 @@ public class NodeAdapter extends BaseAdapter {
 	
 	public void refresh()
 	{
-		try {
-			nodeNum = gateway.getNodeNum();
-			gateway.refreshNodes();
-		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		Log.v(LOG_TAG, "refresh called");
+		nodeNum = gateway.getNodeNum();
+		gateway.refreshNodes();
 	}
 
 	@Override
@@ -68,14 +64,9 @@ public class NodeAdapter extends BaseAdapter {
 			convertView = inflater.inflate(R.layout.node_info, null);
 		}
 		
-		Node node = new Node();
-		try {
-			Log.v(LOG_TAG, "getView: position=" + position);
-			node = gateway.getNode(position);
-		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		Node node;// = new Node();
+		Log.v(LOG_TAG, "getView: position=" + position);
+		node = gateway.getNodeByIndex(position);
 		
 		fillNodeInfo(convertView, node);
 		

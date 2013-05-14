@@ -32,7 +32,7 @@ import com.google.common.io.LittleEndianDataInputStream;
 import com.google.common.io.LittleEndianDataOutputStream;
 import com.victor.iotgateapp.R;
 
-public class GatewayService extends Service {
+public class GatewayService {
 	private static final int MAX_CLUSTER = 32;
 	
 	private static final int STOPPED = 0x1;
@@ -58,19 +58,22 @@ public class GatewayService extends Service {
 	LittleEndianDataInputStream dataInput;
 	LittleEndianDataOutputStream dataOutput;
 	private String ipaddr;
+	private ClusterData clusterData;
+	private ClusterData clusterResult;
 	
 	private Handler handler;
 	private static final int INIT = 0x1;
 	private static final int QUERYNODENUM = 0x2;
 	private static final int REFRESHNODES = 0x3;
+	private static final int CLUSTERDATA = 0x4;
 	private int initRet;
 	
 	private Thread recvThread;
 	
-	private void SSLInit() throws Exception
+	private void SSLInit(InputStream inStore) throws Exception
 	{
 		KeyStore ks = KeyStore.getInstance("BKS");
-		InputStream inStore = this.getResources().openRawResource(R.raw.mystore);
+//		InputStream inStore = this.getResources().openRawResource(R.raw.mystore);
 		ks.load(inStore, "123456".toCharArray());
 		TrustManager[] tms = new TrustManager[]{new BKSX509TrustManager(ks)};
 		SSLContext ctx = SSLContext.getInstance("SSLv3");
@@ -187,6 +190,21 @@ public class GatewayService extends Service {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		}
+	}
+	
+	private void readData(int len, int array[])
+	{
+		if (len == 0)
+			return;
+		
+		for (int i = 0; i < len; i++) {
+			try {
+				array[i] = dataInput.read();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 	/*
@@ -307,6 +325,27 @@ public class GatewayService extends Service {
 		}
 	}
 	
+	private void sendClusterData()
+	{
+		//int [] clusterdata = new int[7];
+		writeHead(SEND_CLUSTER_DATA, 0);
+		
+		try {
+			dataOutput.writeShort(clusterData.nwkaddr);
+			dataOutput.writeShort(clusterData.cluster);
+			dataOutput.writeByte(clusterData.srcep);
+			dataOutput.writeByte(clusterData.dstep);
+			dataOutput.writeByte(clusterData.data_len);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		if (clusterData.data_len > 0) {
+			writeData(clusterData.data_len, clusterData.data);
+		}
+	}
+	
 	private void handleQueryNodes(Head hdr)
 	{
 		if (!nodes.isEmpty())
@@ -366,6 +405,30 @@ public class GatewayService extends Service {
 		node.endpoints.add(ep);
 	}
 	
+	private void handleSendClusterData(Head h)
+	{
+		Log.v(LOG_TAG, "handleSendClusterData called");
+		clusterResult = new ClusterData();
+		
+		try {
+			clusterResult.nwkaddr = dataInput.readUnsignedShort();
+			clusterResult.cluster = dataInput.readUnsignedShort();
+			clusterResult.srcep = dataInput.readUnsignedByte();
+			clusterResult.dstep = dataInput.readUnsignedByte();
+			clusterResult.data_len = dataInput.readUnsignedByte();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		if (clusterResult.data_len > 0) {
+			clusterResult.data = new int[clusterResult.data_len];
+			readData(clusterResult.data_len, clusterResult.data);
+		}
+		
+		notifyHandler();
+	}
+	
 	private Node getNode(int nwkaddr)
 	{
 		for (int i = 0; i < nodes.size(); i++) {
@@ -402,7 +465,9 @@ public class GatewayService extends Service {
 						queryNodes();
 						//queryEndpoints(); at the end of handleQueryNodes()
 						break;
-						
+					case CLUSTERDATA:
+						sendClusterData();
+						break;						
 					}
 				}
 				
@@ -455,19 +520,18 @@ public class GatewayService extends Service {
 						Log.v(LOG_TAG, "wake refreshNode");
 					}
 					break;
+				case SEND_CLUSTER_DATA:
+					handleSendClusterData(h);
+					break;
 				}
 			} while (true);
-			
 		}
-		
 	}
 	
 	
-	public void onCreate()
+	public void start()
 	{
-		super.onCreate();
 		nodes = new Vector<Node>();
-		gatewayBinder = new GatewayBinder();
 		token = 0;
 		status = STOPPED;
 		Thread sendThread;
@@ -495,69 +559,64 @@ public class GatewayService extends Service {
 			handler.notify();
 		}
 	}
-	
-	@Override
-	public IBinder onBind(Intent arg0) {
+
+	public Endpoint getEndpoint(int nwkaddr, int i)
+	{
 		// TODO Auto-generated method stub
-		return gatewayBinder;
+		int j;
+		for (j = 0; j < nodes.size(); j++) {
+			Node node = nodes.get(j);
+			if (node.nwkaddr == nwkaddr)
+				return node.endpoints.get(i);
+		}
+		return null;
 	}
 	
-	private GatewayBinder gatewayBinder;
-	public class GatewayBinder extends IGateway.Stub {
+	public int startConnect(String ip)
+	{
+		// TODO Auto-generated method stub
+		ipaddr = ip;
+		
+		handler.sendEmptyMessage(INIT);
+		waitHandler();
+		
+		if (initRet != 0)
+			return initRet;
+		
+		return 0;
+	}
 
-		@Override
-		public Node getNode(int i) throws RemoteException {
-			// TODO Auto-generated method stub
-			return nodes.get(i);	
-		}
-
-		@Override
-		public Endpoint getEndpoint(int nwkaddr, int i)
-				throws RemoteException {
-			// TODO Auto-generated method stub
-			int j;
-			for (j = 0; j < nodes.size(); j++) {
-				Node node = nodes.get(j);
-				if (node.nwkaddr == nwkaddr)
-					return node.endpoints.get(i);
-			}
-			return null;
-		}
-
-		@Override
-		public int startConnect(String ip) throws RemoteException {
-			// TODO Auto-generated method stub
-			ipaddr = ip;
-			
-			handler.sendEmptyMessage(INIT);
-			waitHandler();
-			
-			if (initRet != 0)
-				return initRet;
-			
+	public int getNodeNum(){
+		// TODO Auto-generated method stub
+		if (status != RUNNING)
 			return 0;
-		}
-
-		@Override
-		public int getNodeNum() throws RemoteException {
-			// TODO Auto-generated method stub
-			if (status != RUNNING)
-				return 0;
 			
-			handler.sendEmptyMessage(QUERYNODENUM);
-			waitHandler();
-			return nodeNum;
-		}
+		handler.sendEmptyMessage(QUERYNODENUM);
+		waitHandler();
+		return nodeNum;
+	}
 
-		@Override
-		public int refreshNodes() throws RemoteException {
-			// TODO Auto-generated method stub
-			if (status != RUNNING)
-				return 0;
-			
-			handler.sendEmptyMessage(REFRESHNODES);
-			waitHandler();
+	public int refreshNodes()
+	{
+		// TODO Auto-generated method stub
+		if (status != RUNNING)
 			return 0;
-		}
+			
+		handler.sendEmptyMessage(REFRESHNODES);
+		waitHandler();
+		return 0;
+	}
+	
+	public Node getNodeByIndex(int index)
+	{
+		return nodes.get(index);
+	}
+	
+	public int getIntClusterData(ClusterData cd)
+	{
+		handler.sendEmptyMessage(CLUSTERDATA);
+		clusterData = cd;
+		waitHandler();
+		return clusterResult.data[0];
 	}
 }

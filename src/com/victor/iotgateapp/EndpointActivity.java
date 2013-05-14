@@ -1,8 +1,11 @@
 package com.victor.iotgateapp;
 
-import com.victor.iot.Endpoint;
-import com.victor.iot.IGateway;
+import java.util.Timer;
+import java.util.TimerTask;
 
+import com.victor.iot.ClusterData;
+import com.victor.iot.Endpoint;
+import com.victor.iot.GatewayService;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -12,14 +15,16 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.view.Menu;
+import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
 public class EndpointActivity extends Activity {
 	private int nwkaddr;
 	private int epindex;
-	private IGateway gateway;
+	private GatewayService gateway;
 	private Endpoint endpoint;
+	String [] outcluster;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -31,7 +36,11 @@ public class EndpointActivity extends Activity {
 		
         Intent intent = new Intent();
         intent.setAction("com.victor.iot.GATEWAY");
-        bindService(intent, conn, Service.BIND_AUTO_CREATE);
+        gateway = IOTGateApp.gateway;
+        endpoint = gateway.getEndpoint(nwkaddr, epindex);
+        
+        outcluster = new String[endpoint.outclusternum];
+        initActivity();
 	}
 
 	private void initActivity()
@@ -44,6 +53,18 @@ public class EndpointActivity extends Activity {
 		nwkaddr.setText(String.format("%04x", endpoint.nwkaddr));
 		pid.setText(String.format("%d", endpoint.profileid));
 		did.setText(String.format("%d", endpoint.deviceid));
+		
+		//EndpointAdapter adapter = new EndpointAdapter();
+		//adapter.init(endpoint, gateway);
+		for (int i = 0; i < outcluster.length; i++) {
+			outcluster[i] = "0";
+		}
+		
+        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(
+				this, android.R.layout.simple_list_item_1, outcluster);
+		list.setAdapter(arrayAdapter);
+		
+		initTimer();
 	}
 	
 	@Override
@@ -52,36 +73,39 @@ public class EndpointActivity extends Activity {
 		getMenuInflater().inflate(R.menu.activity_endpoint, menu);
 		return true;
 	}
-	
-	private ServiceConnection conn = new ServiceConnection()
-	{
-
-		@Override
-		public void onServiceConnected(ComponentName arg0, IBinder arg1) {
-			// TODO Auto-generated method stub
-			gateway = IGateway.Stub.asInterface(arg1);
-			try {
-				endpoint = gateway.getEndpoint(nwkaddr, epindex);
-			} catch (RemoteException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			
-			initActivity();
-		}
-
-		@Override
-		public void onServiceDisconnected(ComponentName arg0) {
-			// TODO Auto-generated method stub
-			
-		}
-		
-	};
 
 	 protected void onDestroy()
 	 {
 		 super.onDestroy();
-		 unbindService(conn);
 	 }
-	
+	 
+	 private final Timer timer = new Timer(); 
+	 private TimerTask task;
+	 
+	 private void initTimer()
+	 {
+		 final ClusterData [] cd = new ClusterData[endpoint.outclusternum];
+		 
+		 for (int i = 0; i < endpoint.outclusternum; i++) {
+			 cd[i] = new ClusterData();
+			 cd[i].nwkaddr = endpoint.nwkaddr;
+			 cd[i].cluster = endpoint.outclusterlist[i];
+			 cd[i].srcep = 0;
+			 cd[i].dstep = endpoint.index;
+			 cd[i].data_len = 0;
+		 }
+		 
+		 task = new TimerTask()
+		 {
+			@Override
+			public void run() {
+				// TODO Auto-generated method stub
+				for (int i = 0; i < endpoint.outclusternum; i++) {
+					outcluster[i] = Integer.toString(gateway.getIntClusterData(cd[i]));
+				}
+			}
+			 
+		 };
+		 timer.schedule(task, 1000); //ms
+	 }
 }

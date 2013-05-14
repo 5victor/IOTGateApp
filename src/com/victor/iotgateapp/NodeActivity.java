@@ -1,7 +1,7 @@
 package com.victor.iotgateapp;
 
 import com.victor.iot.Endpoint;
-import com.victor.iot.IGateway;
+import com.victor.iot.GatewayService;
 import com.victor.iot.Node;
 
 import android.os.Bundle;
@@ -23,7 +23,7 @@ import android.widget.AdapterView.OnItemClickListener;
 
 public class NodeActivity extends Activity {
 	private static final String LOG_TAG = "IOTGateApp";
-	private IGateway gateway;
+	private static GatewayService gateway;
 	private int index;
 	
 	Node node;
@@ -35,8 +35,8 @@ public class NodeActivity extends Activity {
 		
         Intent intent = new Intent();
         intent.setAction("com.victor.iot.GATEWAY");
-        bindService(intent, conn, Service.BIND_AUTO_CREATE);
-        
+        gateway = IOTGateApp.gateway;
+        initEndpoint();
         index = getIntent().getIntExtra("index", -1);
         Log.v(LOG_TAG, "NodeActivity start index=" + index);
         if (index == -1)
@@ -98,36 +98,18 @@ public class NodeActivity extends Activity {
 		return true;
 	}
 	
-	 private ServiceConnection conn = new ServiceConnection()
-	 {
-
-			@Override
-			public void onServiceConnected(ComponentName arg0, IBinder arg1) {
-				// TODO Auto-generated method stub
-				gateway = IGateway.Stub.asInterface(arg1);
-				try {
-					node = gateway.getNode(index);
-					for (int i = 0; i < node.epnum; i++) {
-						Endpoint ep = gateway.getEndpoint(node.nwkaddr, i);
-						node.endpoints.add(ep);
-					}
-				} catch (RemoteException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				initActivity();
-			}
-
-			@Override
-			public void onServiceDisconnected(ComponentName name) {
-				// TODO Auto-generated method stub
-				
-			}
-	 };
+	private void initEndpoint()
+	{
+		node = gateway.getNodeByIndex(index);
+		for (int i = 0; i < node.epnum; i++) {
+			Endpoint ep = gateway.getEndpoint(node.nwkaddr, i);
+			node.endpoints.add(ep);
+		}
+		initActivity();
+	}
 	 
 	 protected void onDestroy()
 	 {
 		 super.onDestroy();
-		 unbindService(conn);
 	 }
 }

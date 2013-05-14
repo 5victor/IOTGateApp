@@ -1,8 +1,6 @@
 package com.victor.iotgateapp;
 
 import com.victor.iot.GatewayService;
-import com.victor.iot.IGateway;
-
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -32,7 +30,7 @@ public class IOTGateApp extends Activity {
 	private static final String LOG_TAG = "IOTGateApp";
 	
 	SharedPreferences sharePref;
-    private IGateway gateway;
+    public static GatewayService gateway;
     private ListView listView;
 
 	
@@ -42,12 +40,23 @@ public class IOTGateApp extends Activity {
         
         Intent intent = new Intent();
         intent.setAction("com.victor.iot.GATEWAY");
-        bindService(intent, conn, Service.BIND_AUTO_CREATE);
+        gateway = new GatewayService();
+        gateway.start();
         
         sharePref = PreferenceManager.getDefaultSharedPreferences(this);
         sharePref.registerOnSharedPreferenceChangeListener(new IOTOnSharedPreferenceChangeListener());
         
-        listView = (ListView) findViewById(R.id.listView);        
+        listView = (ListView) findViewById(R.id.listView);
+        
+        NodeAdapter adapter = new NodeAdapter(LayoutInflater.from(IOTGateApp.this),gateway);
+        listView.setAdapter(adapter);
+        
+        listView.setOnItemClickListener(new ListClickListener());
+        
+        if (sharePref.getBoolean(perf_auto_start, false)) {
+        	startService();
+        	adapter.refresh();
+        }
     }
 
     public void startService()
@@ -57,12 +66,8 @@ public class IOTGateApp extends Activity {
     	SharedPreferences.Editor editor;
     	editor = sharePref.edit();
     	String ip = sharePref.getString(perf_host_ip, "");
-    	try {
-			ret = gateway.startConnect(ip);
-		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		ret = gateway.startConnect(ip);
+
     	if (ret == 0)
     		editor.putBoolean(perf_service_switch, true);
     	else
@@ -136,35 +141,8 @@ public class IOTGateApp extends Activity {
 		}	
     }
     
-    private ServiceConnection conn = new ServiceConnection()
-    {
-
-		@Override
-		public void onServiceConnected(ComponentName arg0, IBinder arg1) {
-			// TODO Auto-generated method stub
-			gateway = IGateway.Stub.asInterface(arg1);
-	        NodeAdapter adapter = new NodeAdapter(LayoutInflater.from(IOTGateApp.this),gateway);
-	        listView.setAdapter(adapter);
-	        
-	        listView.setOnItemClickListener(new ListClickListener());
-	        
-	        if (sharePref.getBoolean(perf_auto_start, false)) {
-	        	startService();
-	        	adapter.refresh();
-	        }
-
-		}
-
-		@Override
-		public void onServiceDisconnected(ComponentName arg0) {
-			// TODO Auto-generated method stub
-			
-		}
-    };
-    
     protected void onDestroy()
     {
     	super.onDestroy();
-    	unbindService(conn);
     }
 }

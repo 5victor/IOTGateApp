@@ -73,7 +73,7 @@
         android:layout_below="@+id/textView3"
         android:layout_marginTop="26dp"
         android:layout_toLeftOf="@+id/nwkaddr"
-        android:text="输入簇列表："
+        android:text="输出簇列表："
         android:textAppearance="?android:attr/textAppearanceLarge" />
 
     <ListView
