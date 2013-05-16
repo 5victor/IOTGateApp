@@ -7,7 +7,9 @@ import com.victor.iot.ClusterData;
 import com.victor.iot.Endpoint;
 import com.victor.iot.GatewayService;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
 import android.os.RemoteException;
 import android.app.Activity;
 import android.app.Service;
@@ -24,7 +26,11 @@ public class EndpointActivity extends Activity {
 	private int epindex;
 	private GatewayService gateway;
 	private Endpoint endpoint;
+	ListView list;
+	ArrayAdapter<String> arrayAdapter;
+	Handler mHandler;
 	String [] outcluster;
+	boolean exit;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -48,7 +54,7 @@ public class EndpointActivity extends Activity {
 		TextView nwkaddr = (TextView) findViewById(R.id.nwkaddr);
 		TextView pid = (TextView) findViewById(R.id.profileid);
 		TextView did = (TextView) findViewById(R.id.deviceid);
-		ListView list = (ListView) findViewById(R.id.listView);
+		list = (ListView) findViewById(R.id.listView);
 		
 		nwkaddr.setText(String.format("%04x", endpoint.nwkaddr));
 		pid.setText(String.format("%d", endpoint.profileid));
@@ -60,9 +66,16 @@ public class EndpointActivity extends Activity {
 			outcluster[i] = "0";
 		}
 		
-        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(
+        arrayAdapter = new ArrayAdapter<String>(
 				this, android.R.layout.simple_list_item_1, outcluster);
 		list.setAdapter(arrayAdapter);
+		
+        mHandler = new Handler(){
+        	public void handleMessage(Message msg) {
+        		arrayAdapter.notifyDataSetChanged();
+        		super.handleMessage(msg);
+        	}
+        };
 		
 		initTimer();
 	}
@@ -84,15 +97,17 @@ public class EndpointActivity extends Activity {
 	 
 	 private void initTimer()
 	 {
-		 final ClusterData [] cd = new ClusterData[endpoint.outclusternum];
+		 final ClusterData [] cd = new ClusterData[endpoint.inclusternum];
 		 
-		 for (int i = 0; i < endpoint.outclusternum; i++) {
+		 for (int i = 0; i < endpoint.inclusternum; i++) {
 			 cd[i] = new ClusterData();
 			 cd[i].nwkaddr = endpoint.nwkaddr;
-			 cd[i].cluster = endpoint.outclusterlist[i];
+			 cd[i].cluster = endpoint.inclusterlist[i];
 			 cd[i].srcep = 0;
 			 cd[i].dstep = endpoint.index;
-			 cd[i].data_len = 0;
+			 cd[i].data_len = 1;
+			 cd[i].data = new int[1];
+			 cd[i].data[0] = 1;
 		 }
 		 
 		 task = new TimerTask()
@@ -100,12 +115,31 @@ public class EndpointActivity extends Activity {
 			@Override
 			public void run() {
 				// TODO Auto-generated method stub
-				for (int i = 0; i < endpoint.outclusternum; i++) {
-					outcluster[i] = Integer.toString(gateway.getIntClusterData(cd[i]));
-				}
+				exit = false;
+				do {
+					for (int i = 0; i < endpoint.inclusternum; i++) {
+						outcluster[i] = Integer.toString(gateway.getIntClusterData(cd[i]));
+					}
+					//list.refreshDrawableState();
+					Message msg = new Message();
+					msg.what = 1;
+					mHandler.sendMessage(msg);
+					try {
+						Thread.sleep(500, 0);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					//timer.schedule(task, 1000);
+				} while (exit == false);
 			}
 			 
 		 };
 		 timer.schedule(task, 1000); //ms
+	 }
+	 
+	 void onDestory()
+	 {
+		 exit = true;
 	 }
 }

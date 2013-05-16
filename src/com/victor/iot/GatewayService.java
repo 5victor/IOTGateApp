@@ -172,7 +172,7 @@ public class GatewayService {
 	
 	private void writeData(int len, int array[])
 	{
-
+		Log.v(LOG_TAG, "writeData:len=" + len);
 		if (len == 0)
 			return;
 		
@@ -342,6 +342,7 @@ public class GatewayService {
 		}
 		
 		if (clusterData.data_len > 0) {
+			Log.v(LOG_TAG, "sendClusterData:data_len=" + clusterData.data_len + "data[0]=" + clusterData.data[0]);
 			writeData(clusterData.data_len, clusterData.data);
 		}
 	}
@@ -388,13 +389,16 @@ public class GatewayService {
 		ep.inclusternum = dataInput.readUnsignedByte();
 		ep.inclusterlist = new int[MAX_CLUSTER];
 		for (i = 0; i < MAX_CLUSTER; i++) {
+			Log.v(LOG_TAG, "incluster["+i+"]=" + ep.inclusterlist[i]);
 			ep.inclusterlist[i] = dataInput.readUnsignedShort();
+			Log.v(LOG_TAG, "incluster["+i+"]=" + ep.inclusterlist[i]);
 		}
 		
 		ep.outclusternum = dataInput.readUnsignedByte();
 		ep.outclusterlist = new int[MAX_CLUSTER];
 		for (i = 0; i < MAX_CLUSTER; i++) {
 			ep.outclusterlist[i] = dataInput.readUnsignedShort();
+			Log.v(LOG_TAG, "outcluster["+i+"]=" + ep.outclusterlist[i]);
 		}
 			
 		Node node = getNode(ep.nwkaddr);
@@ -614,9 +618,21 @@ public class GatewayService {
 	
 	public int getIntClusterData(ClusterData cd)
 	{
+		int ret;
 		handler.sendEmptyMessage(CLUSTERDATA);
 		clusterData = cd;
+		
+		Log.v(LOG_TAG, "nwkaddr:" + cd.nwkaddr + " cluster:" + cd.cluster + "dstep:" + cd.dstep
+				+ "srcep:" + cd.srcep + " datalen:" + cd.data_len);
+		
 		waitHandler();
-		return clusterResult.data[0];
+		
+		ret = 0;
+		ret |= clusterResult.data[0];
+		ret |= clusterResult.data[1] << 8;
+		//ret |= clusterResult.data[2] << 16;
+		//ret |= clusterResult.data[3] << 24;
+		Log.v(LOG_TAG, "recv value=" + ret);
+		return ret;
 	}
 }
